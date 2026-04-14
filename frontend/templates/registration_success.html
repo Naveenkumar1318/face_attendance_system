@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <link rel="stylesheet" href="{{ url_for('static', filename='css file/register_success.css') }}">
+    <title>Registration Success</title>
+</head>
+<body>
+  <div class="container">
+    <h2>Registration Successful!</h2>
+    <p>Welcome, {{ student_name }}!</p>
+   <a href="{{ url_for('dashboard') }}">Go to your Dashboard</a>
+  </div>
+</body>
+
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css file/admin_dashboard.css') }}">
+</head>
+<body>
+
+<h2>Admin Dashboard</h2>
+
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    {% for category, message in messages %}
+      <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+
+<!-- Attendance Export Section -->
+<div class="section">
+    <form class="form-inline" action="{{ url_for('export_by_date_excel') }}" method="POST">
+        <label for="export_date">Export Attendance by Date:</label>
+        <input type="date" name="export_date" required>
+        <button class="btn btn-primary" type="submit">Export</button>
+    </form>
+
+    <form class="form-inline" action="{{ url_for('export_by_register_excel') }}" method="POST">
+        <label for="register_number">Export by Register No:</label>
+        <input type="text" name="register_number" placeholder="Register No" required>
+        <button class="btn btn-primary" type="submit">Export</button>
+    </form>
+</div>
+
+<!-- Attendance Filter Section -->
+<div class="section attendance-actions">
+    <h2>Attendance Actions & Filters</h2>
+    <form class="form-inline" method="POST" action="{{ url_for('admin_dashboard', show=show) }}">
+        
+        <!-- Department Filter -->
+        <label>Department:</label>
+        <select name="filter_department">
+            <option value="">All</option>
+            <option value="AERO" {% if filter_department=='AERO' %}selected{% endif %}>AERO</option>
+            <option value="BME" {% if filter_department=='BME' %}selected{% endif %}>BME</option>
+            <option value="CIVIL" {% if filter_department=='CIVIL' %}selected{% endif %}>CIVIL</option>
+            <option value="CSE" {% if filter_department=='CSE' %}selected{% endif %}>CSE</option>
+            <option value="CSE-CS" {% if filter_department=='CSE-CS' %}selected{% endif %}>CSE-CS</option>
+            <option value="CSE-AIML" {% if filter_department=='CSE-AIML' %}selected{% endif %}>CSE-AIML</option>
+            <option value="ECE" {% if filter_department=='ECE' %}selected{% endif %}>ECE</option>
+            <option value="EEE" {% if filter_department=='EEE' %}selected{% endif %}>EEE</option>
+            <option value="MECH" {% if filter_department=='MECH' %}selected{% endif %}>MECH</option>
+            <option value="BT" {% if filter_department=='BT' %}selected{% endif %}>BT</option>
+            <option value="CHEM" {% if filter_department=='CHEM' %}selected{% endif %}>CHEM</option>
+            <option value="IT" {% if filter_department=='IT' %}selected{% endif %}>IT</option>
+            <option value="AI-DS" {% if filter_department=='AI-DS' %}selected{% endif %}>AI-DS</option>
+            <option value="CSBS" {% if filter_department=='CSBS' %}selected{% endif %}>CSBS</option>
+            <option value="ARCH" {% if filter_department=='ARCH' %}selected{% endif %}>ARCH</option>
+            <option value="MBA" {% if filter_department=='MBA' %}selected{% endif %}>MBA</option>
+            <option value="MCA" {% if filter_department=='MCA' %}selected{% endif %}>MCA</option>
+        </select>
+
+        <!-- Year Filter -->
+        <label>Year:</label>
+        <select name="filter_year">
+            <option value="">All</option>
+            <option value="1" {% if filter_year=='1' %}selected{% endif %}>1</option>
+            <option value="2" {% if filter_year=='2' %}selected{% endif %}>2</option>
+            <option value="3" {% if filter_year=='3' %}selected{% endif %}>3</option>
+            <option value="4" {% if filter_year=='4' %}selected{% endif %}>4</option>
+        </select>
+
+        <!-- Slot Filter -->
+        <label>Slot:</label>
+        <select name="slot">
+            <option value="">All</option>
+            <option value="morning" {% if slot=='morning' %}selected{% endif %}>Morning</option>
+            <option value="afternoon" {% if slot=='afternoon' %}selected{% endif %}>Afternoon</option>
+        </select>
+
+        <!-- Filter & Clear Buttons -->
+        <div class="form-buttons">
+            <button class="btn btn-primary" type="submit">Filter</button>
+            <a href="{{ url_for('admin_dashboard', show=show) }}" class="btn btn-success">Clear</a>
+        </div>
+    </form>
+    
+    <!-- Place this wherever you want in your admin dashboard template -->
+
+<!-- Attendance Download Section -->
+ 
+<div class="attendance-downloads-container">
+<!-- Download Today's Present Students -->
+<form action="{{ url_for('download_present') }}" method="post">
+    <input type="hidden" name="filter_dept" value="{{ filter_department }}">
+    <input type="hidden" name="filter_year" value="{{ filter_year }}">
+    <input type="hidden" name="slot" value="{{ slot }}">
+    <button type="submit" class="btn btn-success">Download Present Today</button>
+</form>
+
+<!-- Download Today's Absent Students -->
+<form action="{{ url_for('download_absent') }}" method="post">
+    <input type="hidden" name="filter_dept" value="{{ filter_department }}">
+    <input type="hidden" name="filter_year" value="{{ filter_year }}">
+    <input type="hidden" name="slot" value="{{ slot }}">
+    <button type="submit" class="btn btn-warning">Download Absent Today</button>
+</form>
+
+<!-- Download Full Attendance -->
+<form action="{{ url_for('download_full_attendance') }}" method="post">
+    <input type="hidden" name="filter_dept" value="{{ filter_department }}">
+    <input type="hidden" name="filter_year" value="{{ filter_year }}">
+    <input type="hidden" name="slot" value="{{ slot }}">
+    <button type="submit" class="btn btn-primary">Download Full Attendance</button>
+</form>
+
+</div>
+
+
+</div>
+
+<!-- Attendance Table -->
+<div class="section attendance-box" id="attendance-container">
+    <h3>Today's Attendance Records</h3>
+    <form method="GET" action="{{ url_for('admin_dashboard') }}" class="form-inline">
+        <button class="btn btn-primary" name="show" value="present" type="submit">Today's Present Students</button>
+        <button class="btn btn-primary" name="show" value="absent" type="submit">Today's Absent Students</button>
+    </form>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Register No</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Year</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Photo</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for record in attendance_records %}
+                <tr>
+                    <td>{{ record.id }}</td>
+                    <td>{{ record.register_number }}</td>
+                    <td>{{ record.name }}</td>
+                    <td>{{ record.department }}</td>
+                    <td>{{ record.year }}</td>
+                    <td>{{ record.date }}</td>
+                    <td>{{ record.time }}</td>
+                    <td>{{ record.latitude }}</td>
+                    <td>{{ record.longitude }}</td>
+                    <td>
+                        {% if record.live_image %}
+                            <img src="{{ url_for('static', filename=record.live_image) }}" 
+                                 alt="Student Image" width="60" height="60"
+                                 onclick="openLightbox('{{ url_for('static', filename=record.live_image) }}')">
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox">
+    <img class="lightbox-content" id="lightbox-img">
+</div>
+
+<!-- Student Management Section -->
+<div id="manage-students">
+    <h2>Manage Students</h2>
+    <form method="POST" class="form-inline">
+        <label for="student_search">Search Student:</label>
+        <input type="text" name="student_search" placeholder="Reg No / Name" value="{{ student_search }}">
+        <button class="btn" type="submit">Search</button>
+        <a href="{{ url_for('admin_dashboard') }}" class="btn">Clear</a>
+    </form>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Photo</th>
+                    <th>Name</th>
+                    <th>Register Number</th>
+                    <th>Department</th>
+                    <th>Year</th>
+                    <th>Course Type</th>
+                    <th>Batch</th>
+                    <th>DOB</th>
+                    <th>Mobile</th>
+                    <th>Email</th>
+                    <th>Upload New Photo</th>
+                    <th>Password</th>
+                    <th>Update</th>
+                    <th>Delete</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for student in students %}
+                <tr>
+                    <form action="{{ url_for('update_student', id=student.id) }}" method="POST" enctype="multipart/form-data">
+                        <td>
+                            {% if student.photo %}
+                                <img id="student-img-{{ student.id }}" src="{{ url_for('static', filename=student.photo) }}" width="60" height="60" style="border-radius:50%;">
+                            {% else %}
+                                <img id="student-img-{{ student.id }}" src="{{ url_for('static', filename='default.jpg') }}" width="60" height="60" style="border-radius:50%;">
+                            {% endif %}
+                        </td>
+                        <td><input type="text" name="name" value="{{ student.name }}" required></td>
+                        <td><input type="text" name="register_number" value="{{ student.register_number }}" required></td>
+                        <td><input type="text" name="department" value="{{ student.department }}" required></td>
+                        <td><input type="text" name="year" value="{{ student.year }}" required></td>
+                        <td><input type="text" name="course_type" value="{{ student.course_type }}" required></td>
+                        <td><input type="text" name="batch" value="{{ student.batch }}" required></td>
+                        <td><input type="date" name="dob" value="{{ student.dob }}" required></td>
+                        <td><input type="text" name="mobile" value="{{ student.mobile }}" required></td>
+                        <td><input type="email" name="email" value="{{ student.email }}" required></td>
+                        <td><input type="file" name="photo" accept="image/*" onchange="previewPhoto(this, 'student-img-{{ student.id }}')"></td>
+                        <td>
+                            <input type="password" name="new_password" placeholder="Leave blank if unchanged" id="pass{{ student.id }}">
+                            <span onclick="togglePassword('pass{{ student.id }}')" style="cursor:pointer;">👁️</span>
+                        </td>
+                        <td><button class="btn update-btn" type="submit">Update</button></td>
+                    </form>
+                    <td>
+                        <form action="{{ url_for('delete_student', id=student.id) }}" method="POST">
+                            <button class="btn delete-btn" type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="navigation">
+    <p><a href="/">Logout / Back to Home</a></p>
+</div>
+
+<!-- JS -->
+<script>
+function previewPhoto(input, imgId) {
+    const file = input.files[0];
+    const img = document.getElementById(imgId);
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function togglePassword(id) {
+    const input = document.getElementById(id);
+    input.type = input.type === "password" ? "text" : "password";
+}
+
+function openLightbox(imgSrc) {
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightbox-img');
+    lightbox.style.display = "flex";
+    lightboxImg.src = imgSrc;
+}
+
+document.getElementById('lightbox').addEventListener('click', function(e) {
+    if (e.target === this) {
+        this.style.display = "none";
+    }
+});
+function refreshAttendance() {
+    const params = new URLSearchParams(window.location.search);
+    const show = params.get('show') || 'present';
+
+    fetch(`/admin_dashboard?show=${show}`)
+        .then(response => response.text())
+        .then(html => {
+            // Parse the returned HTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newTable = doc.querySelector('#attendance-container');
+            document.querySelector('#attendance-container').innerHTML = newTable.innerHTML;
+        })
+        .catch(err => console.error('Error refreshing attendance:', err));
+}
+
+// Refresh every 60 seconds
+setInterval(refreshAttendance, 60000);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+   <link rel="stylesheet" href="{{ url_for('static', filename='css file/student_dashboard.css') }}">
+  <title>Student Dashboard</title>
+</head>
+<body>
+
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <script>
+      {% for msg in messages %}
+        alert("{{ msg }}");
+      {% endfor %}
+    </script>
+  {% endif %}
+{% endwith %}
+
+  <div class="dashboard-container">
+    <h2>Welcome, {{ student.name }}</h2>
+    <!-- Attendance Slot Indicator -->
+<div id="slot-indicator" 
+     style="text-align:center; font-weight:700; font-size:1.1rem; margin-bottom:15px; padding:10px; border-radius:8px;">
+  Current Slot: Loading...
+</div>
+
+
+    <div class="info-box">
+      <p><strong>Register No:</strong> {{ student.register_number }}</p>
+      <p><strong>Department:</strong> {{ student.department }}</p>
+      <p><strong>Year:</strong> {{ student.year }}</p>
+      <p><strong>Batch:</strong> {{ student.batch }}</p>
+    </div>
+
+<!-- Student photo from DB -->
+<div class="student-photo">
+  <p>Registered Photo:</p>
+  {% if student and student.photo %}
+    <!-- student.photo must be relative to 'static/' folder -->
+    <img src="{{ url_for('static', filename=student.photo) }}" alt="Student Photo" width="150" height="150">
+  {% else %}
+    <p>No photo uploaded</p>
+  {% endif %}
+</div>
+
+    <!-- Live Camera Feed -->
+    <div>
+      <video id="video" autoplay playsinline width="300"></video>
+      <br />
+      <button type="button" onclick="flipCamera()">Flip Camera</button>
+      <button type="button" onclick="capturePhoto()">📸 Capture Preview</button>
+    </div>
+
+    <!-- Captured Image Preview -->
+    <div class="preview-section">
+      <p><strong>Captured Image:</strong></p>
+      <img id="preview" src="{{ url_for('static', filename='images/default.jpg') }}" width="300" />
+    </div>
+
+    <!-- Location Preview -->
+    <div id="location-preview">
+      <p><strong>Location:</strong></p>
+      <p>Latitude: <span id="lat"></span> | Longitude: <span id="lon"></span></p>
+    </div>
+
+    <!-- Attendance Form -->
+    <form method="POST" action="/mark_attendance" onsubmit="return submitAttendance();">
+      <input type="hidden" name="captured_image" id="captured_image" />
+      <input type="hidden" name="latitude" id="latitude" />
+      <input type="hidden" name="longitude" id="longitude" />
+      <button type="submit">✅ Confirm & Mark Attendance</button>
+    </form>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+  </div>
+
+<div class="download-card-container">
+  <h3>Download Attendance</h3>
+
+ <form method="POST" action="{{ url_for('student_export_excel') }}">
+  <label>Start Date:</label>
+  <input type="date" name="start_date" required>
+  <label>End Date:</label>
+  <input type="date" name="end_date" required>
+  <button type="submit" class="btn btn-success">Export Attendance</button>
+</form>
+
+</div>
+
+
+</div>
+
+<script>
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let preview = document.getElementById('preview');
+let capturedInput = document.getElementById('captured_image');
+let currentFacingMode = "user"; // "user" = front, "environment" = back
+
+// ===== Start Camera =====
+async function startCamera(facingMode = "user") {
+  stopCamera();
+  try {
+    const constraints = {
+      video: { facingMode: facingMode },
+      audio: false
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    await video.play();
+  } catch (err) {
+    console.error("Camera error:", err);
+    alert("Camera not accessible or permission denied.");
+  }
+}
+
+// ===== Stop Camera =====
+function stopCamera() {
+  if (video.srcObject) {
+    video.srcObject.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+  }
+}
+
+// ===== Flip Camera =====
+async function flipCamera() {
+  currentFacingMode = currentFacingMode === "user" ? "environment" : "user";
+  stopCamera();
+  startCamera(currentFacingMode);
+}
+
+// ===== Capture Photo + GPS =====
+function capturePhoto() {
+  // Capture from video
+  const ctx = canvas.getContext('2d');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  const imageData = canvas.toDataURL('image/jpeg');
+  preview.src = imageData;
+  capturedInput.value = imageData;
+
+  // Get GPS location
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      const { latitude, longitude } = pos.coords;
+      document.getElementById('latitude').value = latitude.toFixed(6);
+      document.getElementById('longitude').value = longitude.toFixed(6);
+      document.getElementById('lat').innerText = latitude.toFixed(6);
+      document.getElementById('lon').innerText = longitude.toFixed(6);
+    }, err => {
+      alert("GPS required to continue. " + err.message);
+    }, { enableHighAccuracy: true, timeout: 10000 });
+  } else {
+    alert("GPS not supported on your device.");
+  }
+}
+
+// ===== Check if device has multiple cameras =====
+async function hasMultipleCameras() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  return devices.filter(d => d.kind === "videoinput").length > 1;
+}
+
+// ===== Attendance Slot Handling =====
+function getAttendanceSlot() {
+  const now = new Date();
+  const hours = now.getHours();
+  const minutes = now.getMinutes();
+  const totalMinutes = hours * 60 + minutes;
+
+  // Morning: 08:30 - 10:30
+  if (totalMinutes >= 510 && totalMinutes < 630) return "Morning";
+
+  // Afternoon: 13:30 - 15:30
+  if (totalMinutes >= 810 && totalMinutes < 930) return "Afternoon";
+
+  return "Not Allowed";
+}
+
+// ===== Update Slot Indicator =====
+function updateSlotIndicator() {
+  const slotIndicator = document.getElementById('slot-indicator');
+  if (!slotIndicator) return;
+
+  const slot = getAttendanceSlot();
+  slotIndicator.innerText = `Current Slot: ${slot}`;
+
+  if (slot === "Not Allowed") {
+    slotIndicator.style.backgroundColor = "#f8d7da";
+    slotIndicator.style.color = "#721c24";
+  } else {
+    slotIndicator.style.backgroundColor = "#d4edda";
+    slotIndicator.style.color = "#155724";
+  }
+}
+
+// ===== Attendance Validation =====
+function checkAttendanceAllowed() {
+  const slot = getAttendanceSlot();
+  if (slot === "Not Allowed") {
+    alert("Attendance can only be marked during allowed slots:\nMorning (08:30-10:30) or Afternoon (13:30-15:30).");
+    return false;
+  }
+  return true;
+}
+
+// ===== Attendance Submit =====
+function submitAttendance() {
+  if (!capturedInput.value || !document.getElementById('latitude').value) {
+    alert("Capture image and location first.");
+    return false;
+  }
+  return checkAttendanceAllowed();
+}
+
+// ===== Initialization =====
+window.onload = async () => {
+  startCamera(currentFacingMode);       // Start front camera by default
+  updateSlotIndicator();                // Show current slot
+  setInterval(updateSlotIndicator, 60000); // Refresh slot every minute
+
+  // Show/hide flip button if multiple cameras exist
+  const flipBtn = document.querySelector('button[onclick="flipCamera()"]');
+  if (flipBtn) {
+    const multiple = await hasMultipleCameras();
+    flipBtn.style.display = multiple ? "inline-block" : "none";
+  }
+};
+</script>
+
+
+
+    <div class="navigation">
+      <p><a href="/">Logout/Back to Home</a></p>
+     </div>
+
+  
+</body>
+</html>

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+   <link rel="stylesheet" href="{{ url_for('static', filename='css file/register.css') }}">
+  <title>Student Registration</title>
+</head>
+<body>
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <script>
+      {% for msg in messages %}
+        alert("{{ msg }}");
+      {% endfor %}
+    </script>
+  {% endif %}
+{% endwith %}
+
+  <div class="form-container">
+    <h2>Student Registration</h2>
+    <form method="POST" action="/register" onsubmit="return captureAndSubmit();">
+      <label>Name:</label>
+      <input type="text" name="name" required />
+
+      <label>Register Number:</label>
+      <input type="text" name="register_number" required />
+
+      <label>Date of Birth:</label>
+      <input type="date" name="dob" required />
+
+      <label>Email:</label>
+      <input type="email" name="email" required />
+
+      <label>Mobile:</label>
+      <input type="tel" name="mobile" required pattern="[0-9]{10}" />
+
+      
+      <label>Course:</label>
+      <select name="course" id="course" required>
+        <option value="" disabled selected>Select course</option>
+        <option value="UG">UG</option>
+        <option value="PG">PG</option>
+      </select>
+
+      <label>Department:</label>
+      <select name="department" required>
+        <option value="" disabled selected>Select department</option>
+        <option value="AERO">AERO</option>
+        <option value="BME">BME</option>
+       <option value="CIVIL">CIVIL</option>
+       <option value="CSE">CSE</option>
+       <option value="CSE-CS">CSE-CS</option>
+       <option value="CSE-AIML">CSE-AIML</option>
+       <option value="ECE">ECE</option>
+       <option value="EEE">EEE</option>
+       <option value="MECH">MECH</option>
+       <option value="BT">BT</option>
+       <option value="CHEM">CHEM</option>
+       <option value="IT">IT</option>
+       <option value="AI-DS">AI-DS</option>
+       <option value="CSBS">CSBS</option>
+       <option value="ARCH">ARCH</option>
+       <option value="MBA">MBA</option>
+       <option value="MCA">MCA</option>
+    </select>
+
+      <label>Year:</label>
+      <select name="year" required>
+        <option value="" disabled selected>Select year</option>
+        <option value="1">1st</option>
+        <option value="2">2nd</option>
+        <option value="3">3rd</option>
+        <option value="4">4th</option>
+      </select>
+
+      <label>Batch:</label>
+      <select name="batch" id="batch" required>
+        <option value="" disabled selected>Select batch</option>
+      </select>
+
+      <label>Blood Group:</label>
+      <select name="blood_group" required>
+        <option value="" disabled selected>Select blood group</option>
+        <option value="A+">A+</option>
+        <option value="A-">A-</option>
+        <option value="B+">B+</option>
+        <option value="B-">B-</option>
+        <option value="O+">O+</option>
+        <option value="O-">O-</option>
+        <option value="AB+">AB+</option>
+        <option value="AB-">AB-</option>
+      </select>
+
+      <label>Password:</label>
+<div class="password-wrapper">
+  <input type="password" name="password" id="password" 
+         pattern="(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{6,}" 
+         title="At least 1 capital letter, 1 number, 1 special character" 
+         required />
+  <span class="toggle-password" onclick="togglePassword('password', this)">👁️</span>
+</div>
+
+<label>Re-enter Password:</label>
+<div class="password-wrapper">
+  <input type="password" name="confirm_password" id="confirm_password" required />
+  <span class="toggle-password" onclick="togglePassword('confirm_password', this)">👁️</span>
+</div>
+
+
+      <!-- Camera Section -->
+      <p><strong>Capture Face:</strong></p>
+      <video id="video" autoplay playsinline></video><br />
+      <canvas id="canvas" style="display:none;"></canvas>
+      <img id="preview" src="{{ url_for('static', filename='images/default.jpg') }}" alt="Captured Preview" />
+      <br />
+      <button type="button" onclick="flipCamera()">Flip Camera</button>
+      <button type="button" onclick="capturePhoto()">Capture</button>
+
+      <!-- Hidden Fields -->
+      <input type="hidden" name="captured_image" id="captured_image" />
+      <input type="hidden" name="latitude" id="latitude" />
+      <input type="hidden" name="longitude" id="longitude" />
+
+      <button type="submit">Register</button>
+    </form>
+  </div>
+
+  <!-- JavaScript -->
+   <script>
+/* ----- Batch Dropdown ----- */
+const courseSelect = document.getElementById('course');
+const batchSelect = document.getElementById('batch');
+
+const batchOptions = {
+  UG: ["2022-2026","2023-2027","2024-2028","2025-2029","2026-2030","2027-2031","2028-2032","2029-2033","2030-2034","2031-2035","2032-2036","2033-2037","2034-2038","2035-2039","2036-2040"],
+  PG: ["2024-2026","2025-2027","2026-2028","2027-2029","2028-2030","2029-2031","2030-2032","2031-2033","2032-2034"]
+};
+
+courseSelect.addEventListener('change', () => {
+  const selectedCourse = courseSelect.value;
+  batchSelect.innerHTML = '<option value="" disabled selected>Select batch</option>';
+  if (batchOptions[selectedCourse]) {
+    batchOptions[selectedCourse].forEach(batch => {
+      const option = document.createElement('option');
+      option.value = batch;
+      option.textContent = batch;
+      batchSelect.appendChild(option);
+    });
+    batchSelect.selectedIndex = 1; 
+  }
+});
+
+/* ----- Camera Handling ----- */
+let video = document.getElementById('video');
+let canvas = document.getElementById('canvas');
+let preview = document.getElementById('preview');
+let capturedInput = document.getElementById('captured_image');
+let currentFacingMode = "user";
+
+async function startCamera(facingMode="user") {
+    let constraints = { video: { facingMode: { ideal: facingMode } }, audio: false };
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        await video.play();
+    } catch(err) {
+        console.warn("FacingMode not supported, fallback:", err);
+        try {
+            const fallbackStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false });
+            video.srcObject = fallbackStream;
+            await video.play();
+        } catch(err2) {
+            console.error("Camera not accessible:", err2);
+            alert("Camera not accessible. Please allow permission or use another device.");
+        }
+    }
+}
+
+function stopCamera() {
+    const stream = video.srcObject;
+    if(stream) stream.getTracks().forEach(track => track.stop());
+}
+
+async function flipCamera() {
+    currentFacingMode = currentFacingMode==="user"?"environment":"user";
+    stopCamera();
+    startCamera(currentFacingMode);
+}
+
+function capturePhoto() {
+    const ctx = canvas.getContext('2d');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    const imageData = canvas.toDataURL('image/jpeg');
+    preview.src = imageData;
+    capturedInput.value = imageData;
+}
+
+/* Check if device has multiple cameras */
+async function hasMultipleCameras() {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.filter(d => d.kind==="videoinput").length>1;
+}
+
+/* ----- Password Toggle ----- */
+function togglePassword(fieldId, iconElement){
+    const field=document.getElementById(fieldId);
+    if(field.type==="password"){ field.type="text"; iconElement.textContent="🙈"; }
+    else{ field.type="password"; iconElement.textContent="👁️"; }
+}
+
+/* ----- Confirm Password Live Check ----- */
+const passwordField=document.getElementById("password");
+const confirmField=document.getElementById("confirm_password");
+confirmField.addEventListener("input",()=>{
+    if(confirmField.value==="") confirmField.style.borderColor="#ccd6e0";
+    else if(confirmField.value===passwordField.value) confirmField.style.borderColor="green";
+    else confirmField.style.borderColor="red";
+});
+
+/* ----- Form Submission ----- */
+function captureAndSubmit(){
+    const pwd=document.getElementById("password").value;
+    const confirmPwd=document.getElementById("confirm_password").value;
+
+    if(pwd!==confirmPwd){ alert("Passwords do not match!"); return false; }
+    if(!capturedInput.value){ alert("Please capture a face photo before submitting."); return false; }
+
+    if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(pos=>{
+            document.getElementById('latitude').value=pos.coords.latitude;
+            document.getElementById('longitude').value=pos.coords.longitude;
+            document.forms[0].submit();
+        }, err=>{
+            alert("GPS access required for registration.");
+        });
+    } else { alert("Geolocation not supported."); }
+    return false;
+}
+
+/* ----- Initialize ----- */
+window.addEventListener('load', async ()=>{
+    if(!(await hasMultipleCameras())){
+        document.querySelector('button[onclick="flipCamera()"]').style.display='none';
+    }
+    startCamera(currentFacingMode);
+});
+</script>
+ 
+</body>
+</html>
