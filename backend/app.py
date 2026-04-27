@@ -44,20 +44,17 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # ensure folder exists
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USERNAME'] = 'naveenn13032004@gmail.com'
-app.config['MAIL_PASSWORD'] = 'vagr plhz jqgz wnob'
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
 mail = Mail(app)
 
 # ---- Database Connection & Session ----
-def get_db_connection():
-    conn = pymysql.connect(
-        host='localhost',
-        user='root',
-        password='',
-        db='ace_attendance_system',
-        cursorclass=pymysql.cursors.DictCursor,
-        autocommit=False,
-    )
+conn = pymysql.connect(
+    host=os.getenv("DB_HOST"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    db=os.getenv("DB_NAME"),
+)
     # Keep sessions short and reduce blocking
     with conn.cursor() as cur:
         # MySQL 8 variable names
