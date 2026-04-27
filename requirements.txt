@@ -1,0 +1,10 @@
+flask
+pymysql
+mysql-connector-python
+flask-mail
+pandas
+openpyxl
+geopy
+apscheduler
+numpy
+gunicorn
